@@ -21,6 +21,7 @@ import {
 import { getWalletClient } from "@/lib/wallet";
 import { storeBlobOnWalrus } from "@/lib/walrus";
 import ConsentHistory from "@/components/ConsentHistory";
+import { useEnsIdentity } from "@/lib/ens";
 
 function previewHex(bytes: Uint8Array, n = 48): string {
   return Array.from(bytes.slice(0, n))
@@ -37,6 +38,8 @@ export default function ConsentApp() {
   // embedded wallet created on login).
   const activeWallet =
     wallets.find((w) => w.address === user?.wallet?.address) ?? wallets[0];
+
+  const { identity: myEns } = useEnsIdentity(activeWallet?.address);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,6 +185,22 @@ export default function ConsentApp() {
             value={activeWallet?.address ?? "preparing your wallet…"}
             mono
           />
+          {myEns?.name && (
+            <div className="flex items-center justify-between gap-4">
+              <dt className="text-zinc-500">ENS</dt>
+              <dd className="flex items-center gap-2 font-medium">
+                {myEns.avatar && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={myEns.avatar}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover"
+                  />
+                )}
+                {myEns.name}
+              </dd>
+            </div>
+          )}
         </dl>
       </section>
 

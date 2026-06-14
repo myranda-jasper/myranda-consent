@@ -9,6 +9,7 @@ import {
 import { verifyReceipt, type ConsentReceipt } from "@/lib/receipt";
 import { getWalletClient, type SignerWallet } from "@/lib/wallet";
 import { fetchBlobFromWalrus } from "@/lib/walrus";
+import { EnsName } from "@/components/EnsName";
 
 function short(s: string, head = 12, tail = 8): string {
   return s.length > head + tail + 1 ? `${s.slice(0, head)}…${s.slice(-tail)}` : s;
@@ -24,27 +25,51 @@ export default function ConsentHistory({
   receipts: ConsentReceipt[];
   wallet?: SignerWallet;
 }) {
-  const [verify, setVerify] = useState<Record<string, VerifyStatus>>({});
-  const [fetchStatus, setFetchStatus] = useState<Record<string, FetchStatus>>({});
-  const [decrypted, setDecrypted] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+      <h2 className="text-lg font-semibold">My consent history</h2>
 
-  async function handleVerify(r: ConsentReceipt) {
-    const key = r.signature;
-    setVerify((s) => ({ ...s, [key]: "checking" }));
+      {receipts.length === 0 ? (
+        <p className="mt-1 text-sm text-zinc-500">
+          No consent receipts yet. Approve and store an export to create one.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-4">
+          {receipts.map((r) => (
+            <ReceiptCard key={r.signature} receipt={r} wallet={wallet} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ReceiptCard({
+  receipt: r,
+  wallet,
+}: {
+  receipt: ConsentReceipt;
+  wallet?: SignerWallet;
+}) {
+  const [verify, setVerify] = useState<VerifyStatus>("idle");
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>("idle");
+  const [decrypted, setDecrypted] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleVerify() {
+    setVerify("checking");
     try {
       const ok = await verifyReceipt(r);
-      setVerify((s) => ({ ...s, [key]: ok ? "valid" : "invalid" }));
+      setVerify(ok ? "valid" : "invalid");
     } catch {
-      setVerify((s) => ({ ...s, [key]: "error" }));
+      setVerify("error");
     }
   }
 
-  async function handleFetch(r: ConsentReceipt) {
-    const key = r.signature;
+  async function handleFetch() {
     if (!r.blobId || !wallet) return;
-    setFetchStatus((s) => ({ ...s, [key]: "loading" }));
-    setErrors((e) => ({ ...e, [key]: "" }));
+    setFetchStatus("loading");
+    setError(null);
     try {
       // 1. Pull the encrypted blob back from Walrus.
       const bytes = await fetchBlobFromWalrus(r.blobId);
@@ -58,105 +83,81 @@ export default function ConsentHistory({
       const aesKey = await deriveAesKeyFromSignature(signature);
       // 3. Decrypt. This only succeeds with the correct signature-derived key.
       const data = await decryptJson(bytes, aesKey);
-      setDecrypted((d) => ({ ...d, [key]: JSON.stringify(data, null, 2) }));
-      setFetchStatus((s) => ({ ...s, [key]: "done" }));
+      setDecrypted(JSON.stringify(data, null, 2));
+      setFetchStatus("done");
     } catch (e) {
-      setErrors((er) => ({
-        ...er,
-        [key]:
-          e instanceof Error
-            ? `${e.message} (a different wallet/key cannot decrypt this)`
-            : String(e),
-      }));
-      setFetchStatus((s) => ({ ...s, [key]: "error" }));
+      setError(
+        e instanceof Error
+          ? `${e.message} (a different wallet/key cannot decrypt this)`
+          : String(e),
+      );
+      setFetchStatus("error");
     }
   }
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
-      <h2 className="text-lg font-semibold">My consent history</h2>
+    <li className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="font-medium">{r.dataCategory}</span>
+        <span className="text-zinc-500">
+          {new Date(r.createdAtIso).toLocaleString()}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <EnsName address={r.user} prefix="Signed by " />
+      </p>
+      <p className="mt-1 text-xs text-zinc-500">
+        Walrus blob ID:{" "}
+        <span className="font-mono" title={r.blobId ?? ""}>
+          {r.blobId ? short(r.blobId) : "not stored"}
+        </span>
+      </p>
 
-      {receipts.length === 0 ? (
-        <p className="mt-1 text-sm text-zinc-500">
-          No consent receipts yet. Approve and store an export to create one.
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={handleVerify}
+          className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {verify === "checking" ? "Verifying…" : "Verify"}
+        </button>
+        <button
+          onClick={handleFetch}
+          disabled={!r.blobId || !wallet || fetchStatus === "loading"}
+          className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+        >
+          {fetchStatus === "loading" ? "Fetching…" : "Fetch from Walrus"}
+        </button>
+      </div>
+
+      {(verify === "valid" || verify === "invalid" || verify === "error") && (
+        <p
+          className={`mt-2 text-sm font-medium ${
+            verify === "valid"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
+          }`}
+        >
+          {verify === "valid" &&
+            "✓ Signature valid — consent confirmed for this address."}
+          {verify === "invalid" && "✗ Signature does not match this address."}
+          {verify === "error" && "Could not verify this signature."}
         </p>
-      ) : (
-        <ul className="mt-4 space-y-4">
-          {receipts.map((r) => {
-            const key = r.signature;
-            const v = verify[key] ?? "idle";
-            const f = fetchStatus[key] ?? "idle";
-            return (
-              <li
-                key={key}
-                className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="font-medium">{r.dataCategory}</span>
-                  <span className="text-zinc-500">
-                    {new Date(r.createdAtIso).toLocaleString()}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Walrus blob ID:{" "}
-                  <span className="font-mono" title={r.blobId ?? ""}>
-                    {r.blobId ? short(r.blobId) : "not stored"}
-                  </span>
-                </p>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleVerify(r)}
-                    className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    {v === "checking" ? "Verifying…" : "Verify"}
-                  </button>
-                  <button
-                    onClick={() => handleFetch(r)}
-                    disabled={!r.blobId || !wallet || f === "loading"}
-                    className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    {f === "loading" ? "Fetching…" : "Fetch from Walrus"}
-                  </button>
-                </div>
-
-                {(v === "valid" || v === "invalid" || v === "error") && (
-                  <p
-                    className={`mt-2 text-sm font-medium ${
-                      v === "valid"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {v === "valid" &&
-                      "✓ Signature valid — consent confirmed for this address."}
-                    {v === "invalid" &&
-                      "✗ Signature does not match this address."}
-                    {v === "error" && "Could not verify this signature."}
-                  </p>
-                )}
-
-                {errors[key] && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                    {errors[key]}
-                  </p>
-                )}
-
-                {decrypted[key] && (
-                  <div className="mt-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Decrypted with your signature-derived key
-                    </p>
-                    <pre className="mt-2 max-h-60 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-zinc-100">
-                      {decrypted[key]}
-                    </pre>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
       )}
-    </section>
+
+      {error && (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      {decrypted && (
+        <div className="mt-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            Decrypted with your signature-derived key
+          </p>
+          <pre className="mt-2 max-h-60 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-zinc-100">
+            {decrypted}
+          </pre>
+        </div>
+      )}
+    </li>
   );
 }
