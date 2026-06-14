@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
+/* Phase 5: force class-based dark mode so the UI stays on-brand dark behind the
+   animated background. Revert this file together with the Phase 5 commit. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +16,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background-color: #0c0518; /* dark fallback behind the animated canvas */
 }
 
 body {
-  background: var(--background);
+  background: transparent; /* let the fixed aurora canvas show through */
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
