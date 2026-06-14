@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { makeSampleExport, type SampleExport } from "@/lib/sampleData";
 
 export default function ConsentApp() {
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -12,10 +14,41 @@ export default function ConsentApp() {
   const activeWallet =
     wallets.find((w) => w.address === user?.wallet?.address) ?? wallets[0];
 
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statusLog, setStatusLog] = useState<string[]>([]);
+  const [sampleData, setSampleData] = useState<SampleExport | null>(null);
+
+  function pushStatus(msg: string) {
+    setStatusLog((log) => [...log, msg]);
+  }
+
+  async function runFlow() {
+    if (!activeWallet) {
+      setError("Your wallet isn't ready yet — give it a moment and try again.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setStatusLog([]);
+    setSampleData(null);
+
+    try {
+      // Step 2 — generate the data export that we will protect.
+      pushStatus("Generating a sample data export…");
+      const data = makeSampleExport(activeWallet.address);
+      setSampleData(data);
+      pushStatus("Export ready.");
+      // Next steps (encryption, signed receipt, Walrus upload) are added below.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!ready) {
-    return (
-      <p className="mt-10 text-sm text-zinc-500">Loading…</p>
-    );
+    return <p className="mt-10 text-sm text-zinc-500">Loading…</p>;
   }
 
   if (!authenticated) {
@@ -69,7 +102,45 @@ export default function ConsentApp() {
         </dl>
       </section>
 
-      {/* The approve-and-store flow is added in the next step. */}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-lg font-semibold">Approve and store an export</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          We&apos;ll generate a small sample data export that stands in for your
+          real exported data.
+        </p>
+        <button
+          onClick={runFlow}
+          disabled={busy || !activeWallet}
+          className="mt-4 inline-flex h-11 items-center rounded-full bg-indigo-600 px-6 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? "Working…" : "Approve and store an export"}
+        </button>
+
+        {statusLog.length > 0 && (
+          <ul className="mt-4 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+            {statusLog.map((msg, i) => (
+              <li key={i}>• {msg}</li>
+            ))}
+          </ul>
+        )}
+
+        {error && (
+          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
+            {error}
+          </p>
+        )}
+
+        {sampleData && (
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Sample export
+            </p>
+            <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-zinc-100">
+              {JSON.stringify(sampleData, null, 2)}
+            </pre>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
