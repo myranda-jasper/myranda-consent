@@ -3,6 +3,18 @@
 import { useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { makeSampleExport, type SampleExport } from "@/lib/sampleData";
+import {
+  ENCRYPTION_KEY_MESSAGE,
+  deriveAesKeyFromSignature,
+  encryptJson,
+} from "@/lib/crypto";
+import { getWalletClient } from "@/lib/wallet";
+
+function previewHex(bytes: Uint8Array, n = 48): string {
+  return Array.from(bytes.slice(0, n))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export default function ConsentApp() {
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -18,6 +30,7 @@ export default function ConsentApp() {
   const [error, setError] = useState<string | null>(null);
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [sampleData, setSampleData] = useState<SampleExport | null>(null);
+  const [encrypted, setEncrypted] = useState<Uint8Array | null>(null);
 
   function pushStatus(msg: string) {
     setStatusLog((log) => [...log, msg]);
@@ -32,14 +45,30 @@ export default function ConsentApp() {
     setError(null);
     setStatusLog([]);
     setSampleData(null);
+    setEncrypted(null);
 
     try {
       // Step 2 — generate the data export that we will protect.
       pushStatus("Generating a sample data export…");
       const data = makeSampleExport(activeWallet.address);
       setSampleData(data);
-      pushStatus("Export ready.");
-      // Next steps (encryption, signed receipt, Walrus upload) are added below.
+
+      // Step 3 — derive an AES key from a wallet signature, then encrypt.
+      pushStatus("Asking your wallet to sign the encryption-key message…");
+      const walletClient = await getWalletClient(activeWallet);
+      const signature = await walletClient.signMessage({
+        account: activeWallet.address as `0x${string}`,
+        message: ENCRYPTION_KEY_MESSAGE,
+      });
+
+      pushStatus("Deriving your AES-GCM key from that signature…");
+      const key = await deriveAesKeyFromSignature(signature);
+
+      pushStatus("Encrypting your export in the browser…");
+      const encryptedBytes = await encryptJson(data, key);
+      setEncrypted(encryptedBytes);
+      pushStatus(`Encrypted ${encryptedBytes.length} bytes. Only your wallet can decrypt this.`);
+      // Next steps (signed receipt, Walrus upload) are added below.
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -105,9 +134,24 @@ export default function ConsentApp() {
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-semibold">Approve and store an export</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          We&apos;ll generate a small sample data export that stands in for your
-          real exported data.
+          We&apos;ll generate a small sample data export, then encrypt it in your
+          browser with a key only your wallet can recreate.
         </p>
+
+        <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-900 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+          <p className="font-medium">How this stays private</p>
+          <p className="mt-1">
+            Your encryption key is rebuilt from a signature only your wallet can
+            produce — it signs the fixed message{" "}
+            <span className="font-mono text-xs">
+              &ldquo;{ENCRYPTION_KEY_MESSAGE}&rdquo;
+            </span>
+            . The key is never stored or sent anywhere. Because only your wallet
+            can recreate that signature, only you can decrypt this data — not us,
+            not Walrus, no one else.
+          </p>
+        </div>
+
         <button
           onClick={runFlow}
           disabled={busy || !activeWallet}
@@ -133,10 +177,21 @@ export default function ConsentApp() {
         {sampleData && (
           <div className="mt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Sample export
+              Sample export (plaintext, before encryption)
             </p>
-            <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-zinc-100">
+            <pre className="mt-2 max-h-60 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-zinc-100">
               {JSON.stringify(sampleData, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {encrypted && (
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Encrypted blob ({encrypted.length} bytes) — unreadable without your key
+            </p>
+            <pre className="mt-2 overflow-auto rounded-lg bg-zinc-900 p-4 text-xs leading-5 text-emerald-300">
+              {previewHex(encrypted)}…
             </pre>
           </div>
         )}
