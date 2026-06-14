@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import ConsentApp from "@/components/ConsentApp";
 
@@ -10,9 +11,16 @@ export default function AppPage() {
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
       <Link
         href="/"
-        className="text-sm text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-300"
+        className="inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-200"
       >
-        ← Myranda Consent
+        <Image
+          src="/logo-512.png"
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7"
+        />
+        Myranda Consent
       </Link>
 
       {appId ? <ConsentApp /> : <NotConfiguredNotice />}
