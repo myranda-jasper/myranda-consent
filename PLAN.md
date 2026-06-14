@@ -6,21 +6,24 @@ Myranda Consent is an open-source project for **user-owned consent**: people
 control their own data, hold their own keys, and every consent decision is
 recorded in a way that is verifiable and tamper-evident.
 
-This document is the running roadmap. Phase 0 is concrete and underway. Phases
-1–3 are a proposed direction and will be refined as we go (each phase starts
-from a written prompt saved in [`/prompts`](./prompts)).
+This document is the running roadmap. Phase 0 is done. Phases 1–3 are a
+proposed direction and will be refined as we go (each phase starts from a
+written prompt saved in [`/prompts`](./prompts)).
+
+**Live site:** https://myranda-consent.vercel.app
+**Repo:** https://github.com/myranda-jasper/myranda-consent
 
 ---
 
-## Phase 0 — Foundation (in progress)
+## Phase 0 — Foundation ✅ (complete)
 
 Get a real, live, public project online that we can build on.
 
 - [x] Scaffold a Next.js app (App Router) with TypeScript and Tailwind.
 - [x] Landing page: title "Myranda Consent" + subtitle.
-- [ ] Initialise git and create a **public** GitHub repo `myranda-consent`.
-- [ ] Deploy to Vercel for a live URL.
-- [ ] `PLAN.md` + `/prompts` folder (this file, and `prompts/phase-0.md`).
+- [x] Initialise git and create a **public** GitHub repo `myranda-consent`.
+- [x] Deploy to Vercel for a live URL.
+- [x] `PLAN.md` + `/prompts` folder (this file, and `prompts/phase-0.md`).
 
 ## Phase 1 — Consent records (proposed)
 
