@@ -11,6 +11,8 @@ const EPOCHS = process.env.WALRUS_EPOCHS ?? "5";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Give the Walrus upload room to finish on serverless infrastructure.
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const body = await req.arrayBuffer();

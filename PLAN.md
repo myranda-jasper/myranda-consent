@@ -6,7 +6,7 @@ Myranda Consent is an open-source project for **user-owned consent**: people
 control their own data, hold their own keys, and every consent decision is
 recorded in a way that is verifiable and tamper-evident.
 
-This document is the running roadmap. Phase 0 is done. Phases 1–3 are a
+This document is the running roadmap. Phases 0–1 are done. Phases 2–3 are a
 proposed direction and will be refined as we go (each phase starts from a
 written prompt saved in [`/prompts`](./prompts)).
 
@@ -25,13 +25,19 @@ Get a real, live, public project online that we can build on.
 - [x] Deploy to Vercel for a live URL.
 - [x] `PLAN.md` + `/prompts` folder (this file, and `prompts/phase-0.md`).
 
-## Phase 1 — Consent records (proposed)
+## Phase 1 — Core consent flow ✅ (complete)
 
-The core idea made tangible: create and view a consent "receipt."
+Login, encrypt, sign, store, and verify — the whole loop, at `/app`.
 
-- A form to record a consent decision (who, what data, what purpose, when).
-- Store the consent record and display a clean, human-readable receipt.
-- A list/history of consent records.
+- [x] Privy auth (email + external wallet / MetaMask).
+- [x] "Approve and store an export" with a sample data export.
+- [x] AES-GCM encryption in the browser, key derived from a wallet signature
+      (HKDF over the signature of "Myranda Consent encryption key v1").
+- [x] EIP-712 signed consent receipt (user, action, category, timestamp,
+      blob hash) — the signature is the verifiable consent.
+- [x] Encrypted blob uploaded to Walrus testnet (via a server-side proxy).
+- [x] "My consent history" with Verify (re-check signature) and Fetch from
+      Walrus (re-download + decrypt with the signature-derived key).
 
 ## Phase 2 — Your keys (proposed)
 
