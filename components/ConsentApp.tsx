@@ -21,6 +21,7 @@ import {
 import { getWalletClient } from "@/lib/wallet";
 import { storeBlobOnWalrus } from "@/lib/walrus";
 import ConsentHistory from "@/components/ConsentHistory";
+import EnsPublish from "@/components/EnsPublish";
 import { useEnsIdentity } from "@/lib/ens";
 
 function previewHex(bytes: Uint8Array, n = 48): string {
@@ -136,6 +137,8 @@ export default function ConsentApp() {
       setBusy(false);
     }
   }
+
+  const latestBlobId = receipts.find((r) => r.blobId)?.blobId ?? null;
 
   if (!ready) {
     return <p className="mt-10 text-sm text-zinc-500">Loading…</p>;
@@ -271,6 +274,12 @@ export default function ConsentApp() {
       </section>
 
       <ConsentHistory receipts={receipts} wallet={activeWallet} />
+
+      <EnsPublish
+        wallet={activeWallet}
+        identity={myEns}
+        latestBlobId={latestBlobId}
+      />
     </div>
   );
 }
