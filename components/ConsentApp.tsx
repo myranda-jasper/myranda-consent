@@ -19,6 +19,7 @@ import {
   type ConsentReceipt,
 } from "@/lib/receipt";
 import { getWalletClient } from "@/lib/wallet";
+import { storeBlobOnWalrus } from "@/lib/walrus";
 
 function previewHex(bytes: Uint8Array, n = 48): string {
   return Array.from(bytes.slice(0, n))
@@ -104,7 +105,7 @@ export default function ConsentApp() {
         }),
       });
 
-      setReceipt({
+      const signedReceipt: ConsentReceipt = {
         user: activeWallet.address as `0x${string}`,
         action: CONSENT_ACTION,
         dataCategory: DATA_CATEGORY,
@@ -113,11 +114,17 @@ export default function ConsentApp() {
         signature: consentSignature,
         blobId: null,
         createdAtIso: new Date().toISOString(),
-      });
+      };
+      setReceipt(signedReceipt);
       pushStatus(
         "Consent receipt signed — this signature is your verifiable consent.",
       );
-      // Next step (Walrus upload) is added below.
+
+      // Step 5 — upload the encrypted blob to Walrus and record the blob ID.
+      pushStatus("Uploading the encrypted blob to Walrus (testnet)…");
+      const blobId = await storeBlobOnWalrus(encryptedBytes);
+      setReceipt({ ...signedReceipt, blobId });
+      pushStatus(`Stored on Walrus. Blob ID: ${blobId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -259,6 +266,9 @@ export default function ConsentApp() {
             <Row label="User" value={short(receipt.user)} mono />
             <Row label="Blob hash" value={short(receipt.blobHash)} mono />
             <Row label="Signature" value={short(receipt.signature)} mono />
+            {receipt.blobId && (
+              <Row label="Walrus blob ID" value={receipt.blobId} mono />
+            )}
           </dl>
         </section>
       )}
