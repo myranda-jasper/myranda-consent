@@ -2,18 +2,32 @@
 
 import { useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { makeSampleExport, type SampleExport } from "@/lib/sampleData";
+import {
+  DATA_CATEGORY,
+  makeSampleExport,
+  type SampleExport,
+} from "@/lib/sampleData";
 import {
   ENCRYPTION_KEY_MESSAGE,
   deriveAesKeyFromSignature,
   encryptJson,
 } from "@/lib/crypto";
+import {
+  CONSENT_ACTION,
+  buildConsentTypedData,
+  hashBlob,
+  type ConsentReceipt,
+} from "@/lib/receipt";
 import { getWalletClient } from "@/lib/wallet";
 
 function previewHex(bytes: Uint8Array, n = 48): string {
   return Array.from(bytes.slice(0, n))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function short(s: string, head = 12, tail = 8): string {
+  return s.length > head + tail + 1 ? `${s.slice(0, head)}…${s.slice(-tail)}` : s;
 }
 
 export default function ConsentApp() {
@@ -31,6 +45,7 @@ export default function ConsentApp() {
   const [statusLog, setStatusLog] = useState<string[]>([]);
   const [sampleData, setSampleData] = useState<SampleExport | null>(null);
   const [encrypted, setEncrypted] = useState<Uint8Array | null>(null);
+  const [receipt, setReceipt] = useState<ConsentReceipt | null>(null);
 
   function pushStatus(msg: string) {
     setStatusLog((log) => [...log, msg]);
@@ -46,6 +61,7 @@ export default function ConsentApp() {
     setStatusLog([]);
     setSampleData(null);
     setEncrypted(null);
+    setReceipt(null);
 
     try {
       // Step 2 — generate the data export that we will protect.
@@ -67,8 +83,41 @@ export default function ConsentApp() {
       pushStatus("Encrypting your export in the browser…");
       const encryptedBytes = await encryptJson(data, key);
       setEncrypted(encryptedBytes);
-      pushStatus(`Encrypted ${encryptedBytes.length} bytes. Only your wallet can decrypt this.`);
-      // Next steps (signed receipt, Walrus upload) are added below.
+      pushStatus(
+        `Encrypted ${encryptedBytes.length} bytes. Only your wallet can decrypt this.`,
+      );
+
+      // Step 4 — build and sign an EIP-712 consent receipt.
+      pushStatus("Hashing the encrypted blob and building your consent receipt…");
+      const blobHash = hashBlob(encryptedBytes);
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      pushStatus("Asking your wallet to sign the consent receipt (EIP-712)…");
+      const consentSignature = await walletClient.signTypedData({
+        account: activeWallet.address as `0x${string}`,
+        ...buildConsentTypedData({
+          user: activeWallet.address as `0x${string}`,
+          action: CONSENT_ACTION,
+          dataCategory: DATA_CATEGORY,
+          timestamp,
+          blobHash,
+        }),
+      });
+
+      setReceipt({
+        user: activeWallet.address as `0x${string}`,
+        action: CONSENT_ACTION,
+        dataCategory: DATA_CATEGORY,
+        timestamp,
+        blobHash,
+        signature: consentSignature,
+        blobId: null,
+        createdAtIso: new Date().toISOString(),
+      });
+      pushStatus(
+        "Consent receipt signed — this signature is your verifiable consent.",
+      );
+      // Next step (Walrus upload) is added below.
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -117,17 +166,13 @@ export default function ConsentApp() {
         <h2 className="text-sm font-medium text-zinc-500">Your identity</h2>
         <dl className="mt-3 space-y-2 text-sm">
           {user?.email?.address && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-zinc-500">Email</dt>
-              <dd className="font-medium">{user.email.address}</dd>
-            </div>
+            <Row label="Email" value={user.email.address} />
           )}
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-500">Wallet</dt>
-            <dd className="font-mono text-xs sm:text-sm">
-              {activeWallet?.address ?? "preparing your wallet…"}
-            </dd>
-          </div>
+          <Row
+            label="Wallet"
+            value={activeWallet?.address ?? "preparing your wallet…"}
+            mono
+          />
         </dl>
       </section>
 
@@ -196,6 +241,46 @@ export default function ConsentApp() {
           </div>
         )}
       </section>
+
+      {receipt && (
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="text-lg font-semibold">Signed consent receipt</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Signed with EIP-712. This signature is your verifiable consent — anyone
+            can check it against your address without trusting us.
+          </p>
+          <dl className="mt-4 space-y-2 text-sm">
+            <Row label="Action" value={receipt.action} mono />
+            <Row label="Data category" value={receipt.dataCategory} mono />
+            <Row
+              label="Timestamp"
+              value={new Date(receipt.timestamp * 1000).toLocaleString()}
+            />
+            <Row label="User" value={short(receipt.user)} mono />
+            <Row label="Blob hash" value={short(receipt.blobHash)} mono />
+            <Row label="Signature" value={short(receipt.signature)} mono />
+          </dl>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className={mono ? "font-mono text-xs sm:text-sm" : "font-medium"}>
+        {value}
+      </dd>
     </div>
   );
 }
