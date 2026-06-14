@@ -6,9 +6,9 @@ Myranda Consent is an open-source project for **user-owned consent**: people
 control their own data, hold their own keys, and every consent decision is
 recorded in a way that is verifiable and tamper-evident.
 
-This document is the running roadmap. Phases 0–1 are done. Phases 2–3 are a
-proposed direction and will be refined as we go (each phase starts from a
-written prompt saved in [`/prompts`](./prompts)).
+This document is the running roadmap. Phases 0–2 are done. Phase 3 will be
+defined by the next prompt (each phase starts from a written prompt saved in
+[`/prompts`](./prompts)).
 
 **Live site:** https://myranda-consent.vercel.app
 **Repo:** https://github.com/myranda-jasper/myranda-consent
@@ -39,21 +39,24 @@ Login, encrypt, sign, store, and verify — the whole loop, at `/app`.
 - [x] "My consent history" with Verify (re-check signature) and Fetch from
       Walrus (re-download + decrypt with the signature-derived key).
 
-## Phase 2 — Your keys (proposed)
+## Phase 2 — ENS identity ✅ (complete)
 
-Make "your keys" real — the user, not us, signs their consent.
+Put a human-readable identity on every consent receipt.
 
-- Generate a keypair in the user's browser; the private key stays with them.
-- Cryptographically sign each consent record with that key.
-- Show that a receipt is signed and by whom (public key / identity).
+- [x] Resolve the connected wallet's primary ENS name + avatar (viem, public
+      mainnet RPC, reads only, with forward-verification).
+- [x] Show "Signed by name.eth" + avatar on each receipt (and in the identity
+      card); fall back to the shortened address with a note when there's no name.
+- [x] Stretch: owner-gated "Publish to ENS" — writes the latest Walrus blob ID
+      into the text record `me.myranda.consent` (mainnet tx, gas-warned). Only
+      shown when the connected wallet owns its primary ENS name.
 
-## Phase 3 — On the record (proposed)
+## Phase 3 — To be defined
 
-Make consent verifiable and tamper-evident — "on the record."
-
-- Tamper-evidence (e.g. hashing / linking records so changes are detectable).
-- A public verification page: anyone can check a receipt's signature is valid.
-- Shareable proof of consent.
+Direction set by the next prompt. Threads not yet built: persisting the receipt
+list (currently in-memory only), a public verification page where anyone can
+check a receipt, tamper-evidence / linking of records, and shareable proof of
+consent.
 
 ---
 
