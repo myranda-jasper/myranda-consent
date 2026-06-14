@@ -9,7 +9,7 @@ import {
   type WalletClient,
 } from "viem";
 
-interface SignerWallet {
+export interface SignerWallet {
   address: string;
   getEthereumProvider: () => Promise<unknown>;
 }

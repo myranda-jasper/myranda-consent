@@ -15,3 +15,15 @@ export async function storeBlobOnWalrus(
   }
   return data.blobId as string;
 }
+
+export async function fetchBlobFromWalrus(
+  blobId: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const res = await fetch(`/api/walrus/${encodeURIComponent(blobId)}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error ?? `Walrus fetch failed (${res.status})`);
+  }
+  const buf = await res.arrayBuffer();
+  return new Uint8Array(buf);
+}
